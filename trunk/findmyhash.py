@@ -2895,7 +2895,7 @@ Valid OPTIONS are:
   -h <hash_value>  If you only want to crack one hash, specify its value with this option.
 
   -f <file>        If you have several hashes, you can specify a file with one hash per line.
-                   NOTE: All of them have to be of the same type.
+                   NOTE: All of them have to be the same type.
                    
   -g               If your hash cannot be cracked, search it in Google and show all the results.
                    NOTE: This option ONLY works with -h (one hash input) option.
