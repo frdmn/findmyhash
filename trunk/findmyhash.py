@@ -2904,13 +2904,13 @@ Valid OPTIONS are:
 Examples:
 ---------
 
-  -> Try to crack an only hash.
+  -> Try to crack only one hash.
      %s MD5 -h 098f6bcd4621d373cade4e832627b4f6
   
   -> If the hash cannot be cracked, it will be searched in Google.
      %s SHA1 -h A94A8FE5CCB19BA61C4C0873D391E987982FBBD3 -g
    
-  -> Try to crack all the hashes of a file (one hash per line).
+  -> Try to crack multiple hashes using a file (one hash per line).
      %s MYSQL -f mysqlhashesfile.txt
      
      
