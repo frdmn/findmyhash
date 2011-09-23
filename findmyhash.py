@@ -301,7 +301,7 @@ class BENRAMSEY:
 
 
 
-class GROMWEB:
+class GROMWEB: # ********************** analizar este
 	
 	name = 		"gromweb"
 	url = 		"http://md5.gromweb.com"
@@ -1136,12 +1136,12 @@ class C0LLISION:
 					cols = doc.xpathEval("//td")
 					
 					if len(cols) < 4:
-						return result
+						return None
 					
-					if cols[3].content:
-						result += " > %s (%s) = %s\n" % ( cols[1].content, cols[2].content, cols[3].content )
+					if cols[2].content:
+						result = " > %s (%s) = %s\n" % ( cols[1].content, cols[2].content, cols[3].content )
 				
-				return ( result and "\n" + result or result )
+				return ( result and "\n" + result or None )
 			
 		else:
 			match = search (r'<td class="plaintext">[^<]*</td>', html)
@@ -2820,7 +2820,7 @@ CRAKERS = [ 	SCHWETT,
 		BOKEHMAN ]
 
 
-
+#CRAKERS = [C0LLISION]
 
 
 ########################################################################################################
@@ -2882,7 +2882,7 @@ Usage:
 Accepted algorithms are:
 ------------------------
 
- MD4, MD5, SHA1, SHA256, RMD160, MYSQL, CISCO7, LM & NTLM
+ MD4, MD5, SHA1, SHA256, RMD160, LM, NTLM, MYSQL, CISCO7 & JUNIPER
  
  NOTE: for LM / NTLM it is recommended to introduce both values with this format:
          %s LM   -h 9a5760252b7455deaad3b435b51404ee:0d7f1f2bdeac6e574d6e18ca85fb58a7
@@ -2924,66 +2924,151 @@ Contact:
 
 
 
-def crackHash (hashvalue, algorithm):
-	"""Crack a hash.
+def crackHash (algorithm, hashvalue=None, hashfile=None):
+	"""Crack a hash or all the hashes of a file.
 	
-	@param hashvalue Hash value to be cracked.
 	@param alg Algorithm of the hash (MD5, SHA1...).
+	@param hashvalue Hash value to be cracked.
+	@param hashfile Path of the hash file.
 	@return If the hash has been cracked or not."""
 	
 	global CRAKERS
 	
-	result = ""
+	# Cracked hashes will be stored here
+	crackedhashes = []
 	
-	# Initial message
-	print "\nCracking hash: %s\n" % (hashvalue)
+	# Is the hash cracked?
+	cracked = False
+	
+	# Only one of the two possible inputs can be setted.
+	if (not hashvalue and not hashfile) or (hashvalue and hashfile):
+		return False
+	
+	# hashestocrack depends on the input value
+	hashestocrack = None
+	if hashvalue:
+		hashestocrack = [ hashvalue ]
+	else:
+		try:
+			hashestocrack = open (hashfile, "r")
+		except:
+			print "\nIt is not possible to read input file (%s)\n" % (hashfile)
+	
+	
+	# Try to crack all the hashes...
+	for activehash in hashestocrack:
+		hashresults = []
+		
+		# Standarize the hash
+		activehash = activehash.lower().strip()
+		
+		# Initial message
+		print "\nCracking hash: %s\n" % (activehash)
 
-	# Each loop starts for a different start point to try to avoid IP filtered
-	begin = randint(0, len(CRAKERS))
-	
-	for i in range(len(CRAKERS)):
+		# Each loop starts for a different start point to try to avoid IP filtered
+		begin = randint(0, len(CRAKERS)-1)
 		
-		cr = CRAKERS[ (i+begin)%len(CRAKERS) ]()
-		
-		# Check if the cracker support the algorithm
-		if not cr.isSupported ( algorithm ):
-			continue
-		
-		# Analyze the hash
-		print "Analyzing with %s (%s)..." % (cr.name, cr.url)
-		
-		result = cr.crack ( hashvalue, algorithm )
-		
-		# If there is any result...
-		if result:
-			# If it is a hashlib supported algorithm...
-			if algorithm in [MD4, MD5, SHA1, SHA256, SHA512, RIPEMD]:
-				# Hash value is calculated to compare with cracker result
-				h = hashlib.new (algorithm)
-				h.update (result)
+		for i in range(len(CRAKERS)):
+			
+			# Select the cracker
+			cr = CRAKERS[ (i+begin)%len(CRAKERS) ]()
+			
+			# Check if the cracker support the algorithm
+			if not cr.isSupported ( algorithm ):
+				continue
+			
+			# Analyze the hash
+			print "Analyzing with %s (%s)..." % (cr.name, cr.url)
+			
+			# Crack the hash
+			result = None
+			try:
+				result = cr.crack ( activehash, algorithm )
+			# If it was some trouble, exit
+			except:
+				print "\nSomething was wrong. Please, contact with us to report the bug:\n\nbloglaxmarcaellugar@gmail.com\n"
+				if hashfile:
+					try:
+						hashestocrack.close()
+					except:
+						pass
+				return False
+			
+			# If there is any result...
+			cracked = 0
+			if result:
 				
-				# If the calculated hash is the same to cracker result, the result is correct (finish!)
-				if h.hexdigest() == hashvalue.lower():
-					print
-					print "***** HASH CRACKED!! *****" 
-					print "The original string is: %s" % (result)
-					print
-					break
+				# If it is a hashlib supported algorithm...
+				if algorithm in [MD4, MD5, SHA1, SHA256, SHA512, RIPEMD]:
+					# Hash value is calculated to compare with cracker result
+					h = hashlib.new (algorithm)
+					h.update (result)
+					
+					# If the calculated hash is the same to cracker result, the result is correct (finish!)
+					if h.hexdigest() == activehash:
+						hashresults.append (result)
+						cracked = 2
+				
+				# If it is a NTLM hash
+				elif algorithm == NTLM or (algorithm == LM and ':' in activehash):
+					# NTLM Hash value is calculated to compare with cracker result
+					candidate = hashlib.new('md4', result.split()[-1].encode('utf-16le')).hexdigest()
+					
+					# It's a LM:NTLM combination or a single NTLM hash
+					if (':' in activehash and candidate == activehash.split(':')[1]) or (':' not in activehash and candidate == activehash):
+						hashresults.append (result)
+						cracked = 2
+				
+				# If it is another algorithm, we search in all the crackers
 				else:
-					print "... hash not found in %s" % (cr.name)
-					print
-			# If it is another algorithm, we search in all the crackers
+					hashresults.append (result)
+					cracked = 1
+			
+			# Had the hash cracked?
+			if cracked:
+				print "\n***** HASH CRACKED!! *****\nThe original string is: %s\n" % (result)
+				# If result was verified, break
+				if cracked == 2:
+					break
 			else:
-					print
-					print "***** HASH CRACKED!! *****" 
-					print "The original string is: %s" % (result)
-					print
-		# If there isn't a result, it continue searching
-		else:
-			print "... hash not found in %s" % (cr.name)
-			print
+				print "... hash not found in %s\n" % (cr.name)
+		
+		
+		# Store the result/s for later...
+		if hashresults:
+			
+			# With some hash types, it is possible to have more than one result,
+			# Repited results are deleted and a single string is constructed.
+			resultlist = []
+			for r in hashresults:
+				if r.split()[-1] not in resultlist:
+					resultlist.append (r.split(' ')[-1])
+					
+			finalresult = ""
+			if len(resultlist) > 1:
+				finalresult = ', '.join (resultlist)
+			else:
+				finalresult = resultlist[0]
+			
+			# Valid results are stored
+			crackedhashes.append ( (activehash, finalresult) )
 	
-	return result
+	
+	# Loop is finished. File can need to be closed
+	if hashfile:
+		try:
+			hashestocrack.close ()
+		except:
+			pass
+		
+	# Show a resume of all the cracked hashes
+	print "\nThe following hashes were cracked:\n----------------------------------\n"
+	print crackedhashes and "\n".join ("%s -> %s" % (hashvalue, result.strip()) for hashvalue, result in crackedhashes) or "NO HASH WAS CRACKED."
+	print
+	
+	return cracked
+
+
 
 
 def searchHash (hashvalue):
@@ -3096,41 +3181,20 @@ def main():
 	# Initialize PRNG seed
 	seed()
 
-	crackedhashes = []
-	
+	cracked = 0
 
 	###################################################
-	# If there is only one hash...
-	if hashvalue:
-		crackedhashes = crackHash (hashvalue, algorithm)
-	
-	# If it is one hashes file...
-	else:
-		try:
-			f = open (hashfile, "r")
-			for hashvalue in f:
-				hashvalue = hashvalue.strip()
-				result = crackHash (hashvalue, algorithm)
-				if result:
-					crackedhashes.append ((hashvalue, result))
-			f.close ()
-			
-			# Show a resume of all the cracked hashes
-			print "\nThe following hashes were cracked:\n----------------------------------\n"
-			print crackedhashes and "\n".join ("%s -> %s" % (hashvalue, result) for hashvalue, result in crackedhashes) or "NO HASH WAS CRACKED."
-			print
-		except:
-			print "\nIt is not possible to read input file (%s)\n" % (hashfile)
+	# Crack the hash/es
+	cracked = crackHash (algorithm, hashvalue, hashfile)
 	
 	
 	###################################################
 	# Look for the hash in Google if it is not cracked
-	if not crackedhashes and googlesearch and not hashfile:
+	if not cracked and googlesearch and not hashfile:
 		searchHash (hashvalue)
-
-
-
-
+	
+	
+	
 	# App is finished
 	sys.exit()
 
