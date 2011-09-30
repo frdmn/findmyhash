@@ -79,7 +79,9 @@ Execution error:
 MD4	= "md4"
 MD5 	= "md5"
 SHA1 	= "sha1"
+SHA224	= "sha224"
 SHA256 	= "sha256"
+SHA384	= "sha384"
 SHA512 	= "sha512"
 RIPEMD	= "rmd160"
 LM 	= "lm"
@@ -87,6 +89,10 @@ NTLM	= "ntlm"
 MYSQL	= "mysql"
 CISCO7	= "cisco7"
 JUNIPER = "juniper"
+GOST	= "gost"
+WHIRLPOOL = "whirlpool"
+LDAP_MD5 = "ldap_md5"
+LDAP_SHA1 = "ldap_sha1"
 
 
 USER_AGENTS = [
@@ -156,7 +162,7 @@ class SCHWETT:
 		if match:
 			return None
 		else:
-			return "El hash se ha roto, analizar el resultado para extraer regexp positiva"
+			return "The hash is broken, please contact with La X marca el lugar and send it the hash value to add the correct regexp."
 
 
 
@@ -301,7 +307,7 @@ class BENRAMSEY:
 
 
 
-class GROMWEB: # ********************** analizar este
+class GROMWEB: 
 	
 	name = 		"gromweb"
 	url = 		"http://md5.gromweb.com"
@@ -982,6 +988,10 @@ class HASHCRACK:
 		else:
 			hash2 = hashvalue
 		
+		# Delete the possible starting '*'
+		if alg == MYSQL and hash2[0] == '*':
+			hash2 = hash2[1:]
+		
 		# Build the parameters
 		params = { "auth" : "8272hgt",
 			   "hash" : hash2,
@@ -1465,14 +1475,21 @@ class PASSWORD_DECRYPT:
 		if not self.isSupported (alg):
 			return None
 		
-		# Build the URL and the headers
-		url = "http://password-decrypt.com/cisco.cgi"
+		# Build the URL and the parameters
+		url = ""
+		params = None
+		if alg == CISCO7:
+			url = "http://password-decrypt.com/cisco.cgi"
+			params = { "submit" : "Submit",
+				"cisco_password" : hashvalue,
+				"submit" : "Submit" }
+		else:
+			url = "http://password-decrypt.com/juniper.cgi"
+			params = { "submit" : "Submit",
+				"juniper_password" : hashvalue,
+				"submit" : "Submit" }
 		
-		# Build the parameters
-		params = { "submit" : "Submit",
-			   "cisco_password" : hashvalue,
-			   "submit" : "Submit" }
-			   
+		
 		# Make the request
 		response = do_HTTP_request ( url, params )
 		
@@ -2765,7 +2782,128 @@ class BOKEHMAN:
 
 
 
+class GOOG_LI:
 
+	name = 		"goog.li"
+	url = 		"http://goog.li"
+	supported_algorithm = [MD5, MYSQL, SHA1, SHA224, SHA384, SHA256, SHA512, RIPEMD, NTLM, GOST, WHIRLPOOL, LDAP_MD5, LDAP_SHA1]
+	
+	def isSupported (self, alg):
+		"""Return True if HASHCRACK can crack this type of algorithm and
+		False if it cannot."""
+		
+		if alg in self.supported_algorithm:
+			return True
+		else:
+			return False
+
+
+	def crack (self, hashvalue, alg):
+		"""Try to crack the hash.
+		@param hashvalue Hash to crack.
+		@param alg Algorithm to crack."""
+		
+		# Check if the cracker can crack this kind of algorithm
+		if not self.isSupported (alg):
+			return None
+			
+		hash2 = None
+		if alg in [NTLM] and ':' in hashvalue:
+			hash2 = hashvalue.split(':')[1]
+		else:
+			hash2 = hashvalue
+		
+		# Confirm the initial '*' character
+		if alg == MYSQL and hash2[0] != '*':
+			hash2 = '*' + hash2
+		
+		# Build the URL
+		url = "http://goog.li/?q=%s" % (hash2)
+		
+		# Make the request
+		response = do_HTTP_request ( url )
+		
+		# Analyze the response
+		html = None
+		if response:
+			html = response.read()
+		else:
+			return None
+		
+		match = search (r'<br />cleartext[^:]*: [^<]*<br />', html)
+		
+		if match:
+			return match.group().split(':')[1].strip()[:-6]
+		else:
+			return None
+
+
+
+class WHREPORITORY:
+
+	name = 		"Windows Hashes Repository"
+	url = 		"http://nediam.com.mx"
+	supported_algorithm = [LM, NTLM]
+	
+	def isSupported (self, alg):
+		"""Return True if HASHCRACK can crack this type of algorithm and
+		False if it cannot."""
+		
+		if alg in self.supported_algorithm:
+			return True
+		else:
+			return False
+
+
+	def crack (self, hashvalue, alg):
+		"""Try to crack the hash.
+		@param hashvalue Hash to crack.
+		@param alg Algorithm to crack."""
+		
+		# Check if the cracker can crack this kind of algorithm
+		if not self.isSupported (alg):
+			return None
+			
+		hash2 = None
+		if ':' in hashvalue:
+			if alg == LM:
+				hash2 = hashvalue.split(':')[0]
+			else:
+				hash2 = hashvalue.split(':')[1]
+		else:
+			hash2 = hashvalue
+		
+		# Build the URL, parameters and headers
+		url = ""
+		params = None
+		headers = None
+		if alg == LM:
+			url = "http://nediam.com.mx/winhashes/search_lm_hash.php"
+			params = { "lm" : hash2,
+				"btn_go" : "Search" }
+			headers = { "Referer" : "http://nediam.com.mx/winhashes/search_lm_hash.php" }
+		else:
+			url = "http://nediam.com.mx/winhashes/search_nt_hash.php"
+			params = { "nt" : hash2,
+				"btn_go" : "Search" }
+			headers = { "Referer" : "http://nediam.com.mx/winhashes/search_nt_hash.php" }
+		
+		# Make the request
+		response = do_HTTP_request ( url, params, headers )
+		
+		# Analyze the response
+		html = None
+		if response:
+			html = response.read()
+		else:
+			return None
+		
+		match = search (r'<tr><td align="right">PASSWORD</td><td>[^<]*</td></tr>', html)
+		
+		if match:
+			return match.group().split(':')[1]
+		else:
+			return None
 
 
 
@@ -2817,10 +2955,12 @@ CRAKERS = [ 	SCHWETT,
 		STRINGFUNCTION,
 		XANADREL,
 		SANS,
-		BOKEHMAN ]
+		BOKEHMAN,
+		GOOG_LI,
+		WHREPORITORY ]
 
 
-#CRAKERS = [C0LLISION]
+
 
 
 ########################################################################################################
@@ -2871,22 +3011,38 @@ def do_HTTP_request (url, params={}, httpheaders={}):
 def printSyntax ():
 	"""Print application syntax."""
 	
-	print """%s 1.0 ( http://code.google.com/p/findmyhash/ )
+	print """%s 1.1.0 ( http://code.google.com/p/findmyhash/ )
 
 Usage: 
 ------
 
- %s <algorithm> OPTIONS
+  python %s <algorithm> OPTIONS
 
 
 Accepted algorithms are:
 ------------------------
 
- MD4, MD5, SHA1, SHA256, RMD160, LM, NTLM, MYSQL, CISCO7 & JUNIPER
+  MD4       - RFC 1320
+  MD5       - RFC 1321
+  SHA1      - RFC 3174 (FIPS 180-3)
+  SHA224    - RFC 3874 (FIPS 180-3)
+  SHA256    - FIPS 180-3
+  SHA384    - FIPS 180-3
+  SHA512    - FIPS 180-3
+  RMD160    - RFC 2857
+  GOST      - RFC 5831
+  WHIRLPOOL - ISO/IEC 10118-3:2004
+  LM        - Microsoft Windows hash
+  NTLM      - Microsoft Windows hash
+  MYSQL     - MySQL 3, 4, 5 hash
+  CISCO7    - Cisco IOS type 7 encrypted passwords
+  JUNIPER   - Juniper Networks $9$ encrypted passwords
+  LDAP_MD5  - MD5 Base64 encoded
+  LDAP_SHA1 - SHA1 Base64 encoded
  
- NOTE: for LM / NTLM it is recommended to introduce both values with this format:
-         %s LM   -h 9a5760252b7455deaad3b435b51404ee:0d7f1f2bdeac6e574d6e18ca85fb58a7
-         %s NTLM -h 9a5760252b7455deaad3b435b51404ee:0d7f1f2bdeac6e574d6e18ca85fb58a7
+  NOTE: for LM / NTLM it is recommended to introduce both values with this format:
+         python %s LM   -h 9a5760252b7455deaad3b435b51404ee:0d7f1f2bdeac6e574d6e18ca85fb58a7
+         python %s NTLM -h 9a5760252b7455deaad3b435b51404ee:0d7f1f2bdeac6e574d6e18ca85fb58a7
 
 
 Valid OPTIONS are:
@@ -2905,13 +3061,16 @@ Examples:
 ---------
 
   -> Try to crack only one hash.
-     %s MD5 -h 098f6bcd4621d373cade4e832627b4f6
+     python %s MD5 -h 098f6bcd4621d373cade4e832627b4f6
+     
+  -> Try to crack a JUNIPER encrypted password escaping special characters.
+     python %s JUNIPER -h "\$9\$LbHX-wg4Z"
   
   -> If the hash cannot be cracked, it will be searched in Google.
-     %s SHA1 -h A94A8FE5CCB19BA61C4C0873D391E987982FBBD3 -g
+     python %s LDAP_SHA1 -h "{SHA}cRDtpNCeBiql5KOQsKVyrA0sAiA=" -g
    
   -> Try to crack multiple hashes using a file (one hash per line).
-     %s MYSQL -f mysqlhashesfile.txt
+     python %s MYSQL -f mysqlhashesfile.txt
      
      
 Contact:
@@ -2920,7 +3079,7 @@ Contact:
 [Web]           http://laxmarcaellugar.blogspot.com/
 [Mail/Google+]  bloglaxmarcaellugar@gmail.com
 [twitter]       @laXmarcaellugar
-""" % ( (sys.argv[0],) * 7 )
+""" % ( (sys.argv[0],) * 8 )
 
 
 
@@ -2953,6 +3112,7 @@ def crackHash (algorithm, hashvalue=None, hashfile=None):
 			hashestocrack = open (hashfile, "r")
 		except:
 			print "\nIt is not possible to read input file (%s)\n" % (hashfile)
+			return cracked
 	
 	
 	# Try to crack all the hashes...
@@ -2960,7 +3120,9 @@ def crackHash (algorithm, hashvalue=None, hashfile=None):
 		hashresults = []
 		
 		# Standarize the hash
-		activehash = activehash.lower().strip()
+		activehash = activehash.strip()
+		if algorithm not in [JUNIPER, LDAP_MD5, LDAP_SHA1]:
+			activehash = activehash.lower()
 		
 		# Initial message
 		print "\nCracking hash: %s\n" % (activehash)
@@ -2999,13 +3161,27 @@ def crackHash (algorithm, hashvalue=None, hashfile=None):
 			if result:
 				
 				# If it is a hashlib supported algorithm...
-				if algorithm in [MD4, MD5, SHA1, SHA256, SHA512, RIPEMD]:
+				if algorithm in [MD4, MD5, SHA1,  SHA224, SHA384, SHA256, SHA512, RIPEMD]:
 					# Hash value is calculated to compare with cracker result
 					h = hashlib.new (algorithm)
 					h.update (result)
 					
 					# If the calculated hash is the same to cracker result, the result is correct (finish!)
 					if h.hexdigest() == activehash:
+						hashresults.append (result)
+						cracked = 2
+				
+				# If it is a half-supported hashlib algorithm
+				elif algorithm in [LDAP_MD5, LDAP_SHA1]:
+					alg = algorithm.split('_')[1]
+					ahash =  decodestring ( activehash.split('}')[1] )
+					
+					# Hash value is calculated to compare with cracker result
+					h = hashlib.new (alg)
+					h.update (result)
+					
+					# If the calculated hash is the same to cracker result, the result is correct (finish!)
+					if h.digest() == ahash:
 						hashresults.append (result)
 						cracked = 2
 				
@@ -3157,7 +3333,8 @@ def main():
 		except:
 			printSyntax()
 			sys.exit(1)
-
+	
+	
 	###################################################
 	# Load input parameters
 	algorithm = sys.argv[1].lower()
@@ -3172,24 +3349,25 @@ def main():
 			hashfile = arg
 		else:
 			googlesearch = True
-
-
+	
+	
 	###################################################
 	# Configure the Cookie Handler
 	configureCookieProcessor()
-
+	
 	# Initialize PRNG seed
 	seed()
-
+	
 	cracked = 0
-
+	
+	
 	###################################################
 	# Crack the hash/es
 	cracked = crackHash (algorithm, hashvalue, hashfile)
 	
 	
 	###################################################
-	# Look for the hash in Google if it is not cracked
+	# Look for the hash in Google if it was not cracked
 	if not cracked and googlesearch and not hashfile:
 		searchHash (hashvalue)
 	
