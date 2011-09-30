@@ -4,7 +4,7 @@
 ### LICENSE
 ########################################################################################################
 #
-# findmyhash.py - v 1.0
+# findmyhash.py - v 1.1.0
 #
 # This script is under GPL v3 License (http://www.gnu.org/licenses/gpl-3.0.html).
 #
