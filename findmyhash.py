@@ -4,7 +4,7 @@
 ### LICENSE
 ########################################################################################################
 #
-# findmyhash.py - v 1.1.0
+# findmyhash.py - v 1.1.2
 #
 # This script is under GPL v3 License (http://www.gnu.org/licenses/gpl-3.0.html).
 #
@@ -45,7 +45,7 @@ Execution error:
   Please, check if you have all of them installed in your system.
 
 """
-
+	sys.exit(1)
 
 try:
 	from httplib2 import Http
@@ -58,6 +58,7 @@ Execution error:
   Please, install it before use this application.
 
 """
+	sys.exit(1)
 	
 try:
 	from libxml2 import parseDoc
@@ -67,9 +68,12 @@ Execution error:
 
   The Python library libxml2 is not installed in your system. 
   
+  Because of that, some plugins aren't going to work correctly.
+  
   Please, install it before use this application.
 
 """
+
 
 
 ########################################################################################################
@@ -249,7 +253,11 @@ class MD5_CRACKER:
 		
 		# Analyze the response
 		if response:
-			doc = parseDoc ( response.read() )
+			try:
+				doc = parseDoc ( response.read() )
+			except:
+				print "INFO: You need libxml2 to use this plugin."
+				return None
 		else:
 			return None
 		
@@ -1139,7 +1147,11 @@ class C0LLISION:
 			
 			match = search (r'<table class="pre">.*?</table>', html)
 			if match:
-				doc = parseDoc ( match.group() )
+				try:
+					doc = parseDoc ( match.group() )
+				except:
+					print "INFO: You need libxml2 to use this plugin."
+					return None
 				lines = doc.xpathEval("//tr")
 				for l in lines:
 					doc = parseDoc ( str(l) )
@@ -1151,7 +1163,8 @@ class C0LLISION:
 					if cols[2].content:
 						result = " > %s (%s) = %s\n" % ( cols[1].content, cols[2].content, cols[3].content )
 				
-				return ( result and "\n" + result or None )
+				#return ( result and "\n" + result or None )
+				return ( result and result.split()[-1] or None )
 			
 		else:
 			match = search (r'<td class="plaintext">[^<]*</td>', html)
@@ -1849,7 +1862,11 @@ class FOX21:
 		# Analyze the response
 		xml = None
 		if response:
-			doc = parseDoc ( response.read() )
+			try:
+				doc = parseDoc ( response.read() )
+			except:
+				print "INFO: You need libxml2 to use this plugin."
+				return None
 		else:
 			return None
 		
@@ -2961,8 +2978,6 @@ CRAKERS = [ 	SCHWETT,
 
 
 
-
-
 ########################################################################################################
 ### GENERAL METHODS
 ########################################################################################################
@@ -3011,7 +3026,7 @@ def do_HTTP_request (url, params={}, httpheaders={}):
 def printSyntax ():
 	"""Print application syntax."""
 	
-	print """%s 1.1.0 ( http://code.google.com/p/findmyhash/ )
+	print """%s 1.1.2 ( http://code.google.com/p/findmyhash/ )
 
 Usage: 
 ------
@@ -3217,8 +3232,8 @@ def crackHash (algorithm, hashvalue=None, hashfile=None):
 			# Repited results are deleted and a single string is constructed.
 			resultlist = []
 			for r in hashresults:
-				if r.split()[-1] not in resultlist:
-					resultlist.append (r.split(' ')[-1])
+				if r not in resultlist:
+					resultlist.append (r)
 					
 			finalresult = ""
 			if len(resultlist) > 1:
