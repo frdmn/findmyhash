@@ -1,5 +1,7 @@
 # findmyhash.py
 
+(this is just a mirror of the official Google Code repository: https://code.google.com/p/findmyhash/)
+
 ´findmyhash.py` try to crack different types of hashes using free online services.
 
 **NOTE: findmyhash.py 2.0 is coming!!** The new version will have many changes and improvements. Some of these changes are:
